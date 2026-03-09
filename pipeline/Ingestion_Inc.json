@@ -31,7 +31,7 @@
 					"source": {
 						"type": "AzureSqlSource",
 						"sqlReaderQuery": {
-							"value": "@concat(\n    'SELECT * FROM ',\n    pipeline().parameters.schema,\n    '.',\n    pipeline().parameters.table,\n    ' WHERE ',\n    pipeline().parameters.cdc_column,\n    ' > ''',\n    activity('CDC_LOOKUP').output.value[0].cdc,\n    ''''\n)",
+							"value": "@concat(\n    'SELECT * FROM ',\n    pipeline().parameters.schema,\n    '.',\n    pipeline().parameters.table,\n    ' WHERE ',\n    pipeline().parameters.cdc_column,\n    ' > ''',\n    activity('CDC_LOOKUP').output.firstRow.cdc,\n    ''''\n)",
 							"type": "Expression"
 						},
 						"queryTimeout": "02:00:00",
@@ -128,17 +128,130 @@
 						"type": "Expression"
 					}
 				}
+			},
+			{
+				"name": "Update Last CDC",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Max_CDC",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"additionalColumns": [
+							{
+								"name": "cdc",
+								"value": {
+									"value": "qadawsf",
+									"type": "Expression"
+								}
+							}
+						],
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "JsonDynamic",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": "bronze",
+							"folder": "cdc",
+							"file": "empty.json"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "JsonDynamic",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": "bronze",
+							"folder": "cdc",
+							"file": "cdc.json"
+						}
+					}
+				]
+			},
+			{
+				"name": "Max_CDC",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "AzureSQLToLake",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDB_LS",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "@concat(\n    'SELECT MAX(',\n    pipeline().parameters.cdc_column,\n    ') as cdc FROM ',\n    pipeline().parameters.schema,\n    '.',\n    pipeline().parameters.table\n)",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
 			}
 		],
 		"parameters": {
 			"schema": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "dbo"
 			},
 			"table": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "DimUser"
 			},
 			"cdc_column": {
-				"type": "string"
+				"type": "string",
+				"defaultValue": "updated_at"
 			}
 		},
 		"variables": {
