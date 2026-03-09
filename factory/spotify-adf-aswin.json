@@ -1,0 +1,9 @@
+{
+	"name": "spotify-adf-aswin",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "3e1b4c3d-dd3b-49d8-b6c8-ca6c91bf12ec",
+		"tenantId": "e24ac094-efd8-4a6b-98d5-a129b32a8c9a"
+	}
+}
